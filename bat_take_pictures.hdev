@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* --- Kamera öffnen ---</c>
+<l>create_camera_setup_model (1, CameraSetupModelID)</l>
+<l>info_framegrabber('GenICamTL','port',Information,Values)</l>
+<l>open_framegrabber('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1.0, 'default', 'default', 'default', -1, -1, AcqHandle)</l>
+<l>set_framegrabber_param (AcqHandle,'Gain',5.0)</l>
+<l>set_framegrabber_param (AcqHandle,'ExposureAuto','Continuous')</l>
+<c></c>
+<c>* --- Kamera-Parameter einlesen und einbinden ---</c>
+<l>read_cam_par('camera_parameters.dat', CamParam)</l>
+<l>read_pose('camera_pose.dat', CameraPose)</l>
+<l>read_pose('camera_in_base_pose.dat', CamInBasePose)</l>
+<l>set_camera_setup_cam_param (CameraSetupModelID, 0, [], CamParam, CameraPose)</l>
+<c></c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 1200, 700, 'black', WindowHandle)</l>
+<l>set_part (WindowHandle, 0, 0, 511, 511)</l>
+<c></c>
+<l>set_display_font(WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>dev_set_draw('margin')</l>
+<l>dev_set_color('green')</l>
+<c>   </c>
+<l>for Index := 1 to 10 by 1</l>
+<c>    * --- Bild aufnehmen ---</c>
+<l>    grab_image(Image, AcqHandle)</l>
+<l>    dev_display(Image)</l>
+<l>    FilePath := 'bilder_modelle/model_' + Index + '.png'</l>
+<l>    write_image (Image, 'png', 0, FilePath)</l>
+<l>endfor</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

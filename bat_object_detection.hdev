@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* hauptprogramm.hdev</c>
+<c>* Programm zur Objekterkennung von oben fotografierten Gegenständen</c>
+<c>* HALCON Progress 24.11.01</c>
+<c></c>
+<c>* 1. Initialisierung</c>
+<c>* (Anpassen je nach Projekt)</c>
+<l>ModelDatei := 'shm_model/mein_model.shm'</l>
+<l>BildOrdner := 'bilder/'</l>
+<l>UseSavedModelImage := true</l>
+<l>UseSavedImages := true</l>
+<l>TrainImage := 'trainingsbild_1.png'</l>
+<c></c>
+<c>* 2. Modell laden oder neu erzeugen</c>
+<l>if (UseSavedModelImage)</l>
+<c>    * Modell ist bereits gespeichert   </c>
+<l>    read_shape_model (ModelDatei, ModelID)</l>
+<l>    get_shape_model_contours (ModelContours, ModelID, 1)</l>
+<l>    get_shape_model_origin (ModelID, Row3, Column3)</l>
+<l>    dev_close_window ()</l>
+<l>    dev_open_window (-50, 500, 80, 800, 'black', WindowHandle)</l>
+<l>    dev_display (ModelContours)</l>
+<l>else</l>
+<c>    * Modell existiert noch nicht - also erzeugen</c>
+<l>    read_image (ImageTrain, BildOrdner + TrainImage)</l>
+<c>    * Fenster öffnen</c>
+<l>    dev_close_window ()</l>
+<l>    dev_open_window (-50, 500, 80, 800, 'black', WindowHandle)</l>
+<l>    dev_display (ImageTrain)</l>
+<l>    disp_message (WindowHandle, 'Bitte Objekt markieren und Enter drücken', 'window', 12, 12, 'black', 'true')</l>
+<l>    draw_rectangle2 (WindowHandle, Row1, Column1, Row2, Column2, Length2)</l>
+<l>    gen_rectangle2 (ROI, Row1, Column1, Row2, Column2, Length2)</l>
+<l>    reduce_domain (ImageTrain, ROI, ImageReduced)</l>
+<c>    </c>
+<l>    create_shape_model (ImageReduced, 'auto', -3.14, 3.14, 0.0349, 'auto', 'use_polarity', 'auto', 'auto', ModelID)</l>
+<c>    </c>
+<l>    *inspect_shape_model (ImageReduced, ModelImages, ModelRegions, 4, 30)</l>
+<l>    *get_shape_model_params (ModelID, NumLevels, AngleStart, AngleExtent, AngleStep, ScaleMin, ScaleMax, ScaleStep, Metric, MinContrast)</l>
+<l>    write_shape_model (ModelID, ModelDatei)</l>
+<l>    ModelGeladen := true</l>
+<l>endif</l>
+<c></c>
+<l>if (UseSavedImages = false)</l>
+<c>    * --- Kamera öffnen ---</c>
+<l>    create_camera_setup_model (1, CameraSetupModelID)</l>
+<l>    info_framegrabber('GenICamTL','port',Information,Values)</l>
+<l>    open_framegrabber('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1.0, 'default', 'default', 'default', -1, -1, AcqHandle)</l>
+<l>    set_framegrabber_param (AcqHandle,'Gain',5.0)</l>
+<l>    set_framegrabber_param (AcqHandle,'ExposureAuto','Continuous')</l>
+<c>    </c>
+<c>    * Fenster öffnen</c>
+<l>    dev_close_window ()</l>
+<l>    dev_open_window (0, 0, 1200, 700, 'black', WindowHandle)</l>
+<l>    set_display_font(WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>    dev_set_draw('margin')</l>
+<l>    dev_set_color('green')</l>
+<c>    </c>
+<c>    * --- Kamera-Parameter einlesen und einbinden ---</c>
+<l>    read_cam_par('camera_parameters.dat', CamParam)</l>
+<l>    read_pose('camera_pose.dat', CameraPose)</l>
+<l>    read_pose('camera_in_base_pose.dat', CamInBasePose)</l>
+<l>    read_pose('object_in_cam_pose.dat', ObjInCamPose)</l>
+<l>    set_camera_setup_cam_param (CameraSetupModelID, 0, [], CamParam, CameraPose)</l>
+<c>   </c>
+<c>    * --- Bild aufnehmen ---</c>
+<l>    grab_image(Image, AcqHandle)</l>
+<l>    dev_display(Image)</l>
+<c>    </c>
+<l>    *find_shape_model (Image, ModelID, rad(0), rad(15), 0.34, 0, 0.0, 'least_squares', 1, 0.6, Row, Column, Angle, Score)</l>
+<l>    find_shape_model (Image, ModelID, rad(0), rad(360), 0.34, 0, 0.0, 'interpolation', 1, 1.0, Row, Column, Angle, Score)</l>
+<c>    </c>
+<c>    * Treffer anzeigen</c>
+<l>    for I := 0 to |Row|-1 by 1</l>
+<l>        get_shape_model_contours (ModelContours, ModelID, 1)</l>
+<l>        vector_angle_to_rigid (0, 0, 0, Row[I], Column[I], Angle[I], HomMat2D)</l>
+<l>        affine_trans_contour_xld (ModelContours, ContoursAffineTrans, HomMat2D)</l>
+<l>        dev_set_color ('green')</l>
+<l>        dev_display (ContoursAffineTrans)</l>
+<c>            </c>
+<c>        * Treffer-Info ausgeben</c>
+<l>        disp_message (WindowHandle, 'Treffer ' + (I+1) + ' - Score: ' + Score[I], 'window', Row[I]-30, Column[I], 'black', 'true')</l>
+<l>    endfor   </l>
+<l>    image_points_to_world_plane (CamParam, ObjInCamPose, Row, Column, 'mm', X_mm, Y_mm)</l>
+<l>    close_framegrabber (AcqHandle)</l>
+<l>else</l>
+<c>    * 3. Laufbetrieb: Alle Bilder im Ordner abarbeiten</c>
+<l>    list_files (BildOrdner, 'files', BildDateien)</l>
+<l>    for Index := 0 to 22 by 1</l>
+<l>        read_image (Image, BildDateien[Index]) </l>
+<c>        * Fenster öffnen</c>
+<l>        dev_close_window ()</l>
+<l>        dev_open_window (-100, 0, 1456, 1088, 'black', WindowHandle)</l>
+<l>        dev_display (Image)</l>
+<c>        </c>
+<l>        *find_shape_model (Image, ModelID, rad(-30), rad(30), 0.43, 0, 0.2, 'interpolation', 1, 0.6, Row, Column, Angle, Score)</l>
+<l>        find_shape_model (Image, ModelID, rad(345), rad(30), 0.34, 0, 0.0, 'interpolation', 1, 1.0, Row, Column, Angle, Score)</l>
+<c>        </c>
+<c>        * Treffer anzeigen</c>
+<l>        for I := 0 to |Row|-1 by 1</l>
+<l>            get_shape_model_contours (ModelContours, ModelID, 1)</l>
+<l>            vector_angle_to_rigid (0, 0, 0, Row[I], Column[I], Angle[I], HomMat2D)</l>
+<l>            affine_trans_contour_xld (ModelContours, ContoursAffineTrans, HomMat2D)</l>
+<l>            dev_set_color ('green')</l>
+<l>            dev_display (ContoursAffineTrans)</l>
+<c>            </c>
+<c>            * Treffer-Info ausgeben</c>
+<l>            disp_message (WindowHandle, 'Treffer ' + (I+1) + ' - Score: ' + Score[I], 'window', Row[I]-30, Column[I], 'black', 'true')</l>
+<l>        endfor</l>
+<c>       </c>
+<c>        * Warten auf Taste für nächstes Bild</c>
+<l>        disp_message (WindowHandle, 'Drücke eine Taste für nächstes Bild...', 'window', 12, 12, 'black', 'true')</l>
+<l>        stop()</l>
+<l>    endfor</l>
+<l>endif</l>
+<c></c>
+<c></c>
+<c></c>
+<c>* Aufräumen</c>
+<l>clear_shape_model (ModelID)</l>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

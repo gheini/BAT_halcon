@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* --- Allgemein: ---</c>
+<c>*3. Kalibrierung ohne Fehler mit allen 20 Bilder</c>
+<c>*=&gt; alle Daten mit 03 ausgewählt und gespeichert</c>
+<c>*=&gt; alle Benennungen mit 03 angeschrieben</c>
+<c></c>
+<c>* --- Variablen setzen ---</c>
+<c>* Anzahl Posen/Bilder</c>
+<l>PoseNumber := 20</l>
+<l>UseSavedImages := true</l>
+<l>Folder := 'calib_pictures_06'</l>
+<c>* Korrektur bei Inkonsistenz calib_pictures_01:</c>
+<l>*indices := [1,2,3,4,5,7,8,9,10,12,13,14,15]</l>
+<c>* Korrektur bei Inkonsistenz calib_pictures_02:</c>
+<l>*indices := [6,11,16,17,18,19,20]</l>
+<c>* Korrektur bei Inkonsistenz calib_pictures_03:</c>
+<l>indices := [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]</l>
+<c>* Leere Liste für Posen</c>
+<l>PoseList := []</l>
+<l>open_file('tool_poses_all_03.dat', 'input', FileHandle)</l>
+<c></c>
+<c>* Liste der Tool-Posen erstellen</c>
+<l>for i := 1 to PoseNumber by 1</l>
+<c>    * Lesen einer Zeile</c>
+<l>    fread_line(FileHandle, Line, IsEOF)</l>
+<l>    if (Line == 'EOF')</l>
+<l>        break</l>
+<l>    endif</l>
+<c>    * Zerlegen der Zeile in Werte</c>
+<l>    tuple_split(Line, ',', Values)       </l>
+<c>    * Konvertieren der Werte zu Zahlen</c>
+<l>    tuple_number(Values, Numbers)   </l>
+<l>    tuple_str_replace(Numbers[5], '\n', '', CleanedStr)</l>
+<l>    tuple_number(CleanedStr, CleanedNumber)    </l>
+<c>    * Erzeugen der Pose (RPY + Typ 2)    </c>
+<l>    Pose := [Numbers[0], Numbers[1], Numbers[2], Numbers[3], Numbers[4], CleanedNumber]      </l>
+<l>    PoseList := [PoseList, Pose]</l>
+<l>endfor</l>
+<l>close_file(FileHandle)</l>
+<c></c>
+<c>* -------- Kamera initialisieren ---------</c>
+<c>* Set the initial camera parameters</c>
+<l>Focus := 0.008</l>
+<l>Kappa := 0</l>
+<l>Sx := 0.00000345</l>
+<l>Sy := 0.00000345</l>
+<l>Width := 1456</l>
+<l>Height := 1088</l>
+<l>Cx := Width/2</l>
+<l>Cy := Height/2</l>
+<l>gen_cam_par_area_scan_division (Focus, Kappa, Sx, Sy, Cx, Cy, Width, Height, StartParam)</l>
+<c></c>
+<c>* Select a suitable image acquisition interface name AcqName</c>
+<l>info_framegrabber('GenICamTL','port',Information,Values)</l>
+<c></c>
+<l>if (UseSavedImages = false)</l>
+<c>    * Open image acquisition device using the default settings</c>
+<l>    open_framegrabber('GenICamTL',1,1,0,0,0,0,'default',-1,'default',-1.0,'default','default','default',-1,-1,AcqHandle)</l>
+<l>    set_framegrabber_param (AcqHandle,'Gain',5.0)</l>
+<l>    set_framegrabber_param (AcqHandle,'ExposureAuto','Continuous')</l>
+<l>endif</l>
+<c></c>
+<c>* -------- Kalibrierdatenstruktur erzeugen --------</c>
+<l>create_calib_data('hand_eye_stationary_cam', 1, 1, CalibDataID)</l>
+<c></c>
+<c>* Kalibrierobjekt (z. B. Halcon Kalibrierplatte) registrieren</c>
+<l>set_calib_data_cam_param (CalibDataID, 0, [], StartParam)</l>
+<l>CalPlateDescr := 'caltab_100mm.descr'</l>
+<l>set_calib_data_calib_object(CalibDataID, 0, CalPlateDescr)</l>
+<c></c>
+<c>* -------- Anzeige vorbereiten -----------</c>
+<l>dev_close_window()</l>
+<l>dev_open_window(0, 0, 800, 600, 'black', WindowHandle)</l>
+<l>set_display_font(WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>dev_set_draw('margin')</l>
+<l>dev_set_line_width(2)</l>
+<l>dev_set_color('green')</l>
+<c></c>
+<c>*****************************************</c>
+<c>* --- Interaktive Aufnahme-Schleife --- *</c>
+<c>*****************************************</c>
+<c></c>
+<l>for i := 1 to |indices| by 1</l>
+<l>    Index := indices[i-1]</l>
+<l>    dev_close_window()  </l>
+<c>    </c>
+<l>    if (UseSavedImages)</l>
+<c>        * Bild aus Datei laden</c>
+<l>        ImagePath := Folder + '/image_' + Index + '.png'</l>
+<l>        read_image(Image, ImagePath)   </l>
+<l>        get_image_size (Image, Width, Height)</l>
+<l>    else</l>
+<c>        * Hinweis für Benutzer        </c>
+<l>        dev_open_window(0, 0, 800, 600, 'black', WindowHandle)</l>
+<l>        disp_message(WindowHandle, 'Bewege Roboter in neue Pose.', 'window', 20, 20, 'black', 'true')</l>
+<l>        disp_message(WindowHandle, 'Drücke [Enter], um Bild ' + (Index) + ' aufzunehmen.', 'window', 50, 20, 'black', 'true')</l>
+<c>    </c>
+<c>        * Auf Enter warten</c>
+<l>        read_char(WindowHandle, WindowHandle, WindowHandle) </l>
+<c>    </c>
+<c>        * Bild aufnehmen</c>
+<l>        grab_image(Image, AcqHandle)</l>
+<l>        get_image_size (Image, Width, Height)</l>
+<c>        * Bild speichern</c>
+<l>        ImagePath := Folder + '/image_' + Index + '.png'</l>
+<l>        write_image(Image, 'png', 0, ImagePath)</l>
+<l>    endif   </l>
+<c></c>
+<c>    * Tool-in-Base-Pose aus der Datei extrahieren</c>
+<l>    Offset := (Index - 1) * 6</l>
+<l>    x_pos := PoseList[Offset]</l>
+<l>    y_pos := PoseList[Offset+1]</l>
+<l>    z_pos := PoseList[Offset+2]</l>
+<l>    x_rot := PoseList[Offset+3]</l>
+<l>    y_rot := PoseList[Offset+4]</l>
+<l>    z_rot := PoseList[Offset+5]    </l>
+<l>    create_pose (x_pos, y_pos, z_pos, x_rot, y_rot, z_rot, 'Rp+T', 'gba', 'point', ToolInBasePose)</l>
+<l>    *pose_to_hom_mat3d(ToolInBasePose, ToolinBaseHomM)</l>
+<c>    </c>
+<c>    * In Kalibrierdaten eintragen</c>
+<l>    set_calib_data(CalibDataID, 'tool', Index, 'tool_in_base_pose', ToolInBasePose)</l>
+<c>    </c>
+<c>    * Kalibrierpunkte erkennen</c>
+<l>    try</l>
+<l>        find_calib_object(Image, CalibDataID, 0, 0, Index, [], [])        </l>
+<l>    catch (Exception)</l>
+<l>        dev_get_exception_data (Exception, 'error_message', ErrMsg) </l>
+<l>        set_tposition (WindowHandle, 24, 12)</l>
+<l>        write_string (WindowHandle, ErrMsg) </l>
+<l>    endtry</l>
+<c></c>
+<c>    * Punkte anzeigen    </c>
+<l>    dev_close_window()  </l>
+<l>    dev_open_window(0, 0, 800, 600, 'black', WindowHandle)</l>
+<l>    get_calib_data_observ_points(CalibDataID, 0, 0, Index, Row, Column, _, Pose)</l>
+<l>    dev_display(Image)</l>
+<l>    disp_cross(WindowHandle,Row, Column, 6, 0)</l>
+<l>    disp_message(WindowHandle, 'Bild ' + (Index) + ' aufgenommen.', 'window', 550, 20, 'green', 'true')</l>
+<l>    *wait_seconds(0.5)</l>
+<l>endfor</l>
+<l>dev_close_window()</l>
+<c></c>
+<c>* 2. Check the input poses for consistency</c>
+<l>dev_clear_window ()</l>
+<l>dev_disp_text ('Checking the input poses for consistency...', 'window', 'top', 'left', 'white', 'box', 'false')</l>
+<l>check_hand_eye_calibration_input_poses (CalibDataID, 0.05, 0.005, Warnings)</l>
+<l>if (|Warnings| != 0)</l>
+<c>    * There were problems detected in the input poses. Inspect Warnings and</c>
+<c>    * remove erroneous poses with remove_calib_data and remove_calib_data_observ.</c>
+<l>    dev_inspect_ctrl (Warnings)</l>
+<l>    stop ()</l>
+<l>endif</l>
+<c></c>
+<c>* -------- Kalibrierung durchführen --------</c>
+<l>calibrate_hand_eye(CalibDataID, Errors)</l>
+<l>if (Errors == [])</l>
+<l>    disp_message(WindowHandle, 'Fehler: Keine gültigen Beobachtungen für Kalibrierung.', 'window', 20, 20, 'red', 'true')</l>
+<l>    stop()</l>
+<l>endif</l>
+<c></c>
+<c>* Kalibrierte Parameter auslesen</c>
+<l>get_calib_data(CalibDataID, 'camera', 0, 'params', CamParam)</l>
+<l>get_calib_data(CalibDataID, 'camera', 0, 'pose', CameraPose)</l>
+<l>get_calib_data(CalibDataID, 'camera', 0, 'base_in_cam_pose', BaseInCamPose)</l>
+<l>pose_invert(BaseInCamPose, CamInBasePose)</l>
+<l>pose_to_hom_mat3d(CamInBasePose, CamInBaseHomM)</l>
+<c></c>
+<c>* -------- Speichern der Kalibrierparameter --------</c>
+<l>* write_cam_par(CamParam, 'camera_parameters.dat')</l>
+<l>* write_pose(CameraPose, 'camera_pose.dat')</l>
+<l>* write_pose(BaseInCamPose, 'base_in_camera_pose.dat')</l>
+<l>* write_pose(CamInBasePose, 'camera_in_base_pose.dat')</l>
+<c></c>
+<c>* -------- Anzeige und Abschluss --------</c>
+<l>dev_open_window(0, 0, 800, 100, 'black', WindowHandle)</l>
+<l>disp_message(WindowHandle, 'Kalibrierung abgeschlossen und gespeichert.', 'window', 20, 20, 'black', 'true')</l>
+<c></c>
+<c>* -------- Aufräumen --------</c>
+<l>clear_calib_data(CalibDataID)</l>
+<l>if (UseSavedImages = false)</l>
+<l>    close_framegrabber(AcqHandle)</l>
+<l>endif</l>
+<c></c>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

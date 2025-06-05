@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<l>UseSavedImage := true</l>
+<c></c>
+<l>if (UseSavedImage = false)</l>
+<c>    * --- Kamera öffnen ---</c>
+<l>    info_framegrabber('GenICamTL','port',Information,Values)</l>
+<l>    open_framegrabber('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1.0, 'default', 'default', 'default', -1, -1, AcqHandle)</l>
+<l>    set_framegrabber_param (AcqHandle,'Gain',5.0)</l>
+<l>    set_framegrabber_param (AcqHandle,'ExposureAuto','Continuous')</l>
+<l>endif</l>
+<c></c>
+<c>* --- Fenster öffnen ---</c>
+<l>dev_close_window()</l>
+<l>dev_open_window(0, 600, 800, 600, 'black', WindowHandle)</l>
+<l>set_display_font(WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>dev_set_draw('margin')</l>
+<l>dev_set_color('green')</l>
+<c></c>
+<c>* --- Kalibrierparameter laden ---</c>
+<l>read_cam_par('camera_parameters.dat', CamParam)</l>
+<l>read_pose('camera_pose.dat', CameraPose)</l>
+<l>read_pose('camera_in_base_pose.dat', CamInBasePose)</l>
+<c></c>
+<c>* --- Kalibrierdatenstruktur erzeugen ---</c>
+<l>create_calib_data('calibration_object', 1, 1, CalibDataID)</l>
+<c></c>
+<c>* --- Kalibrierobjekt registrieren ---</c>
+<l>set_calib_data_calib_object(CalibDataID, 0, 'caltab_100mm.descr')</l>
+<c></c>
+<c>* --- Kamera (AcqHandle) in die Kalibrierstruktur einbinden ---</c>
+<l>set_calib_data_cam_param(CalibDataID, 0, [], CamParam)</l>
+<c></c>
+<l>if (UseSavedImage = false)</l>
+<c>    * --- Bild aufnehmen ---</c>
+<l>    grab_image(Image, AcqHandle)</l>
+<l>    dev_display(Image)</l>
+<c>    * Bild speichern</c>
+<l>    ImagePath := 'distance_picture_correct/distance.png'</l>
+<l>    write_image(Image, 'png', 0, ImagePath)</l>
+<l>    close_framegrabber(AcqHandle)</l>
+<l>else</l>
+<c>    * --- Bild aus Datei laden ---</c>
+<l>        ImagePath := 'distance_picture_correct/distance.png'</l>
+<l>        read_image(Image, ImagePath) </l>
+<l>endif</l>
+<c></c>
+<c>* --- Kalibrierobjekt finden ---</c>
+<l>find_calib_object(Image, CalibDataID, 0, 0, 0, [], [])</l>
+<c></c>
+<c>* --- Pose des Kalibrierobjekts zur Kamera auslesen ---</c>
+<l>get_calib_data_observ_pose (CalibDataID, 0, 0, 0, ObjInCamPose_correct)</l>
+<l>pose_to_hom_mat3d(ObjInCamPose_correct, HomMat3D_correct)</l>
+<c></c>
+<l>write_pose(ObjInCamPose_correct,'object_in_cam_pose_correct.dat')</l>
+<c></c>
+<l>ObjectX := ObjInCamPose_correct[0]</l>
+<l>ObjectY := ObjInCamPose_correct[1]</l>
+<l>ObjectZ := ObjInCamPose_correct[2]</l>
+<l>project_3d_point(ObjectX, ObjectY, ObjectZ, CamParam, Row, Column)</l>
+<l>* P0_X := 0</l>
+<l>* P0_Y := 0</l>
+<l>* project_3d_point(P0_X, P0_Y, ObjectZ, CamParam, Row_P0, Column_P0)</l>
+<c>* --- Anzeige im Bild ---</c>
+<l>disp_cross(WindowHandle, Row, Column, 20, 0)</l>
+<l>disp_message(WindowHandle, 'P_ref', 'image', Row + 10, Column + 10, 'green', 'false')</l>
+<l>* dev_set_color('red')</l>
+<l>* disp_cross(WindowHandle, Row_P0, Column_P0, 20, 0)</l>
+<l>* disp_message(WindowHandle, 'P_0', 'image', Row_P0 + 10, Column_P0 + 10, 'red', 'false')</l>
+<c></c>
+<c>* Z-Achse = 3. Spalte der Rotationsmatrix (r13, r23, r33)</c>
+<l>Nx := HomMat3D_correct[2]</l>
+<l>Ny := HomMat3D_correct[6]</l>
+<l>Nz := HomMat3D_correct[10]</l>
+<c></c>
+<c>* --- Z-Abstand auslesen ---</c>
+<l>Arbeitsabstand_correct := (Nx*ObjectX + Ny*ObjectY + Nz*ObjectZ)</l>
+<l>write_tuple(Arbeitsabstand_correct, 'arbeits_distanz_correct.dat')</l>
+<c></c>
+<c>* --- Ergebnis anzeigen ---</c>
+<l>disp_message(WindowHandle, 'Z-Abstand (Arbeitsabstand): ' + Arbeitsabstand_correct + ' m', 'window', 20, 20, 'black', 'true')</l>
+<c></c>
+<c>* Normale anzeigen</c>
+<l>disp_message(WindowHandle, 'Normale: [' + Nx + ', ' + Ny + ', ' + Nz + ']', 'window', 50, 20, 'black', 'true')</l>
+<c></c>
+<l>image_points_to_world_plane(CamParam, ObjInCamPose_correct, 0, 0, 'mm', X_mm, Y_mm)</l>
+<c></c>
+<c>* --- Aufräumen ---</c>
+<l>clear_calib_data(CalibDataID)</l>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

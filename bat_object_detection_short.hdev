@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* hauptprogramm.hdev</c>
+<c>* Programm zur Objekterkennung von oben fotografierten Gegenständen</c>
+<c>* HALCON Progress 24.11.01</c>
+<c></c>
+<c>* 1. Initialisierung</c>
+<c>* (Anpassen je nach Projekt)</c>
+<l>ModelDatei := 'shm_model/mein_model.shm'</l>
+<c></c>
+<c>* 2. Modell laden </c>
+<l>    read_shape_model (ModelDatei, ModelID)</l>
+<l>    get_shape_model_contours (ModelContours, ModelID, 1)</l>
+<c></c>
+<c>    * --- Kamera öffnen ---</c>
+<l>    create_camera_setup_model (1, CameraSetupModelID)</l>
+<l>    info_framegrabber('GenICamTL','port',Information,Values)</l>
+<l>    open_framegrabber('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1.0, 'default', 'default', 'default', -1, -1, AcqHandle)</l>
+<l>    set_framegrabber_param (AcqHandle,'Gain', 4.0)</l>
+<l>    set_framegrabber_param (AcqHandle,'ExposureAuto','Continuous')</l>
+<c>    </c>
+<c>    * --- Kamera-Parameter einlesen und einbinden ---</c>
+<l>    read_cam_par('halcon_files/camera_parameters.dat', CamParam)</l>
+<l>    read_pose('halcon_files/camera_pose.dat', CameraPose)</l>
+<l>    read_pose('halcon_files/camera_in_base_pose.dat', CamInBasePose)</l>
+<l>    read_pose('halcon_files/object_in_cam_pose.dat', ObjInCamPose)</l>
+<l>    set_camera_setup_cam_param (CameraSetupModelID, 0, [], CamParam, CameraPose)</l>
+<c>    </c>
+<l>    for j := 0 to 1 by 1</l>
+<c>        * --- Bild aufnehmen ---</c>
+<l>        grab_image(Image, AcqHandle)    </l>
+<c>       </c>
+<c>        * --- Model suchen ---</c>
+<l>        find_shape_model (Image, ModelID, rad(0), rad(5), 0.34, 0, 0.0, 'interpolation', 1, 0.6, Row, Column, Angle, Score)</l>
+<c>       </c>
+<c>        </c>
+<c>        * Treffer anzeigen</c>
+<l>        dev_close_window ()</l>
+<l>        dev_open_window (0, 0, 1200, 700, 'black', WindowHandle)</l>
+<l>        set_display_font(WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>        dev_set_draw('margin')</l>
+<l>        dev_set_color('green')</l>
+<l>        dev_display(Image)</l>
+<l>        for I := 0 to |Row|-1 by 1</l>
+<l>            get_shape_model_contours (ModelContours, ModelID, 1)</l>
+<l>            vector_angle_to_rigid (0, 0, 0, Row[I], Column[I], Angle[I], HomMat2D)</l>
+<l>            affine_trans_contour_xld (ModelContours, ContoursAffineTrans, HomMat2D)</l>
+<l>            dev_set_color ('green')</l>
+<l>            dev_display (ContoursAffineTrans)</l>
+<c>                </c>
+<c>            * Treffer-Info ausgeben</c>
+<l>            disp_message (WindowHandle, 'Treffer ' + (I+1) + ' - Score: ' + Score[I], 'window', Row[I]-30, Column[I], 'black', 'true')</l>
+<l>        endfor       </l>
+<l>    endfor</l>
+<c>    </c>
+<l>image_points_to_world_plane (CamParam, ObjInCamPose, Row, Column, 'mm', X_mm, Y_mm)</l>
+<c></c>
+<c>* Aufräumen</c>
+<l>close_framegrabber (AcqHandle)</l>
+<l>clear_shape_model (ModelID)</l>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>
