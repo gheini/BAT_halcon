@@ -26,15 +26,15 @@
 <l>    read_cam_par('halcon_files/camera_parameters.dat', CamParam)</l>
 <l>    read_pose('halcon_files/camera_pose.dat', CameraPose)</l>
 <l>    read_pose('halcon_files/camera_in_base_pose.dat', CamInBasePose)</l>
-<l>    read_pose('halcon_files/object_in_cam_pose.dat', ObjInCamPose)</l>
+<l>    read_pose('halcon_files/object_in_cam_pose_correct.dat', ObjInCamPose)</l>
 <l>    set_camera_setup_cam_param (CameraSetupModelID, 0, [], CamParam, CameraPose)</l>
 <c>    </c>
-<l>    for j := 0 to 1 by 1</l>
+<l>    for j := 0 to 0 by 1</l>
 <c>        * --- Bild aufnehmen ---</c>
 <l>        grab_image(Image, AcqHandle)    </l>
 <c>       </c>
 <c>        * --- Model suchen ---</c>
-<l>        find_shape_model (Image, ModelID, rad(0), rad(5), 0.34, 0, 0.0, 'interpolation', 1, 0.6, Row, Column, Angle, Score)</l>
+<l>        find_shape_model (Image, ModelID, rad(345), rad(30), 0.34, 0, 0.0, 'interpolation', 1, 1.0, Row, Column, Angle, Score)</l>
 <c>       </c>
 <c>        </c>
 <c>        * Treffer anzeigen</c>
